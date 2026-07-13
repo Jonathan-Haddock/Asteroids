@@ -1,5 +1,5 @@
+import asyncio
 import pygame
-import sys
 from constants import SCREEN_WIDTH
 from constants import SCREEN_HEIGHT
 from constants import PLAYER_TURN_SPEED
@@ -10,10 +10,7 @@ from asteroid import Asteroid
 from asteroidfield import AsteroidField
 from shot import Shot
 
-def main():
-    pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    clock = pygame.time.Clock()
+async def play(screen, clock):
     dt = 0.0
     updatable = pygame.sprite.Group()
     drawable = pygame.sprite.Group()
@@ -28,7 +25,7 @@ def main():
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return
+                return "quit"
         screen.fill("black")
         updatable.update(dt)
         for obj in drawable:
@@ -38,7 +35,7 @@ def main():
             if result:
                 log_event("player_hit")
                 print("Game Over!")
-                sys.exit()
+                return "dead"
         for obj in asteroids:
             for shot in shots:
                 if  obj.collides_with(shot):
@@ -52,6 +49,35 @@ def main():
         pygame.display.flip()
         dt = clock.tick(60) / 1000
         log_state()
+        await asyncio.sleep(0)  # yield to browser event loop (pygbag); no-op pause on desktop
+
+
+async def game_over(screen):
+    font = pygame.font.Font(None, 64)
+    small = pygame.font.Font(None, 32)
+    title = font.render("Game Over", True, "white")
+    hint = small.render("Press R to restart", True, "white")
+    screen.blit(title, title.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 30)))
+    screen.blit(hint, hint.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 30)))
+    pygame.display.flip()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return "quit"
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                return "restart"
+        await asyncio.sleep(0)
+
+
+async def main():
+    pygame.init()
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    clock = pygame.time.Clock()
+    while True:
+        if await play(screen, clock) == "quit":
+            return
+        if await game_over(screen) == "quit":
+            return
 
     
          
@@ -81,4 +107,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
